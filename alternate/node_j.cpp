@@ -33,71 +33,6 @@ long long int gethash(string key){
     return hash;
 }
 
-
-class Node{
-private:
-	string nodeip;
-	long long int nodeportno;
-	long long int nodeid;
-	bool connectedtoring;
-	// vector<pair<int,string>> fingertable;
-	pair<long long int, pair<string,long long int>> successornode;
-	// pair.first = hashvalue // pair.second.first = ip // pair.second.second = portno
-	
-	pair<long long int, pair<string,long long int>> predecessornode;
-
-public:
-	Node(string ip,int portno){
-		this->nodeip = ip;
-		this->nodeportno = portno;
-		connectedtoring = false;
-	}
-
-	string getip(){
-		return nodeip;
-	}
-
-	long long int getnodeportno(){
-		return nodeportno;
-	}
-
-	bool ringstatus(){
-		return connectedtoring;
-	}
-
-	void setid(long long int id){
-		this->nodeid = id;
-	}
-
-	void setringstatus()
-	{
-		this->connectedtoring = true;
-	}
-
-	void successor(string ip,long long int portno,long long int id){
-		successornode.first = id;
-		successornode.second.first = ip;
-		successornode.second.second = portno;
-	}
-
-	void predecessor(string ip,long long int portno,long long int id){
-		predecessornode.first = id;
-		predecessornode.second.first = ip;
-		predecessornode.second.second = portno;
-	}
-
-
-	void nodedetails()
-	{
-		cout << "Node ip is " << this->nodeip << endl;
-		cout << "Node portno is " << this->nodeportno << endl;
-		cout << "Node nodeid is " << this->nodeid << endl;
-		cout << "Node successornode id is " << this->successornode.first << " ip and port is " << successornode.second.first << " " << successornode.second.second << endl;
-		cout << "Node predecessornode id is " << this->predecessornode.first << " ip and port is " << predecessornode.second.first << " " << predecessornode.second.second << endl;
-	}
-
-};
-
 void printprompt(){
 	cout << "$ ";
 	}
@@ -137,22 +72,29 @@ int main()
 			
 			if(currentnode.ringstatus() == false){
 				
-				string key = myip + to_string(portno);
+				string key = myip +":"+ to_string(portno);
 				long long int id = gethash(key);			// currentnode nodeid, given by sha1 (key = ip+port)
 				currentnode.setid(id);						// set all node values
 				currentnode.setringstatus();
 				currentnode.successor(myip,portno,id);
 				currentnode.predecessor("",-1,-1);
 
-				// launch thread for stabalization
-				// launch thread to start listening for other nodes to join chord ring 
+				// launch thread to start listening for other nodes to join chord ring
+
+
+
+				// launch thread for stabalization 
 			}
 			else{
 				cout << "Node is already part of ring" << endl;
 				}
 		}
 
-		else if(command[0])
+		else if(command[0] == "join_ring"){
+			// if(currentnode.ringstatus() == false){
+
+			// }
+		}
 
 
 		else{
