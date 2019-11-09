@@ -6,6 +6,8 @@
 #include <openssl/sha.h>
 #include<bits/stdc++.h>
 
+#include "nodeclass.h"
+
 using namespace std;
 
 long long int gethash(string key){
@@ -80,7 +82,7 @@ int main()
 				currentnode.predecessor("",-1,-1);
 
 				// launch thread to start listening for other nodes to join chord ring
-
+				
 
 
 				// launch thread for stabalization 

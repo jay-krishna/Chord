@@ -1,3 +1,6 @@
+#ifndef __nodeclass_H_INCLUDED__
+#define __nodeclass_H_INCLUDED__
+
 #include <iostream>
 #include <string>
 
@@ -16,11 +19,7 @@ private:
 	pair<long long int, pair<string,long long int>> predecessornode;
 
 public:
-	Node(string ip,int portno){
-		this->nodeip = ip;
-		this->nodeportno = portno;
-		connectedtoring = false;
-	}
+	Node(string ip,int portno);
 
 	string getip();
 
@@ -38,3 +37,5 @@ public:
 
 	void nodedetails();
 };
+
+#endif
