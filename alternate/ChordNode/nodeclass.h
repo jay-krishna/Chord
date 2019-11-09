@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <utility>
+#include <pthread.h>
 
 using namespace std;
 
@@ -24,6 +25,8 @@ public:
 
 	string getip();
 
+	long long int getid();
+
 	long long int getnodeportno();
 
 	bool ringstatus();
@@ -37,6 +40,12 @@ public:
 	void predecessor(string ip,long long int portno,long long int id);
 
 	pair<string,long long int> successordetail();
+
+	long long int successorid();
+
+	long long int predecessorid();
+
+	pair<string,long long int> predecessordetail();
 
 	void nodedetails();
 

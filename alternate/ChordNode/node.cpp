@@ -10,6 +10,7 @@
 #include "nodeclass.h"
 #include "util.h"
 #include "nodeserver.h"
+#include "nodesync.h"
 
 using namespace std;
 
@@ -58,7 +59,9 @@ int main()
 				pthread_detach(l);
 				
 				// launch thread for stabalization
-
+				pthread_t s;
+				pthread_create(&s,NULL,stable,(void *)&currentnode);
+				pthread_detach(s);
 			}
 				
 			else{
@@ -115,7 +118,9 @@ int main()
 			pthread_create(&ll,NULL,NodeServer,(void *)&currentnode);
 			pthread_detach(ll);
 			// release thread -> stabalization
-
+			pthread_t s;
+			pthread_create(&s,NULL,stable,(void *)&currentnode);
+			pthread_detach(s);
 		}
 
 		else if(command[0] == "temp"){

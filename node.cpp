@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include<netinet/in.h>
 #include<netdb.h>
+#include<unordered_map>
 #include "help.cpp"
 
 using namespace std;
@@ -26,6 +27,7 @@ private:
 	// vector<pair<int,string>> fingertable;
 	pair<long long int, pair<string,long long int>> successornode;// pair.first = hashvalue // pair.second.first = ip // pair.second.second = portno
 	pair<long long int, pair<string,long long int>> predecessornode;
+	unordered_map<string,long long int> data;
 
 public:
 	Node(string ip,int portno){
@@ -72,6 +74,13 @@ public:
 		this->predecessornode.second.second = portno;
 	}
 
+	void datadisplay(){
+		for(auto i = data.begin();i!=data.end();i++)
+		{
+			cout << i->first << " " << i->second << endl;
+		}
+	}
+
 	pair<string,long long int> successordetail(){
 		return make_pair(this->successornode.second.first , this->successornode.second.second);
 	}
@@ -94,6 +103,10 @@ public:
 		cout << "Node nodeid is " << this->nodeid << endl;
 		cout << "Node successornode id is " << this->successornode.first << " ip and port is " << successornode.second.first << " " << successornode.second.second << endl;
 		cout << "Node predecessornode id is " << this->predecessornode.first << " ip and port is " << predecessornode.second.first << " " << predecessornode.second.second << endl;
+	}
+
+	void storedata(long long int id, string s){
+		this->data[s] = id;
 	}
 
 	long long int findsuccessor(long long int requestid){
@@ -167,7 +180,7 @@ void *event(void *fd){
 		input = input + buffer[i];
 		i++;
 	}
-	cout << "command recv " << input << endl;
+	// cout << "command recv " << input << endl;
 	vector<string> command = splitcommand(input);
 	// recv command is "findsuccessor nodeid"
 	
@@ -189,7 +202,7 @@ void *event(void *fd){
 				msg = msg + buffer[j];
 				j++;
 			}
-			cout << "msg from neighbour " << msg << endl;
+			// cout << "msg from neighbour " << msg << endl;
 			send(clientsockfd,msg.c_str(),msg.size(),0);
 		}
 		else{
@@ -221,35 +234,35 @@ void *event(void *fd){
 		long long int p = args->predecessorid(); 
 
 		bool condition = false;
-		cout<<"In nofitfy values "<<n <<" "<<n1<<" "<<p<<endl;
+		// cout<<"In nofitfy values "<<n <<" "<<n1<<" "<<p<<endl;
 		if(p == -1){
-			cout<<"predecessor is -1"<<endl;
+			// cout<<"predecessor is -1"<<endl;
 			condition = true;
 		}
 		else{
 			// n' belongsto (p,n)
 
 			if(p == n && n1==p){
-				cout<<"p1"<<endl;
+				// cout<<"p1"<<endl;
 				condition = false;
 			}
 			else if(p < n){
 				if(p < n1 && n1 < n){
-					cout<<"p2"<<endl;
+					// cout<<"p2"<<endl;
 					condition = true;
 				}
 				else{
-					cout<<"p3"<<endl;
+					// cout<<"p3"<<endl;
 					condition = false;
 				}
 			}
 			else if(p > n){
 				if(!(n <= n1 && n1<=p)){
-					cout<<"p4"<<endl;
+					// cout<<"p4"<<endl;
 					condition = true;
 				}
 				else{
-					cout<<"p5"<<endl;
+					// cout<<"p5"<<endl;
 					condition = false;
 				}
 			}
@@ -259,11 +272,55 @@ void *event(void *fd){
 		}
 
 		if(condition){
-			cout<<"predecessor Updated"<<endl;
+			// cout<<"predecessor Updated"<<endl;
 			pthread_mutex_lock(&lock0); 
 			args->predecessor(command[1],atoi(command[2].c_str()),n1);
 			pthread_mutex_unlock(&lock0); 
 		}
+	}
+
+	else if(command[0] == "upload"){
+		string ack = "File Uploaded to Server";
+		send(clientsockfd,ack.c_str(),ack.size(),0);
+		
+		long long int requestid = gethash(command[1]);
+		long long int p = args->predecessorid();
+		long long int n = args->getid();
+		// id (- (n,s]
+		// id (p,n]
+		bool condition = false;
+		if(n == p){
+			condition = true;
+		}
+		else if(p < n){
+			if(p < requestid && requestid <= n){
+				condition = true;
+			}
+			else{
+				condition = false;
+			}
+		}
+		else{
+			if(!(n < requestid && requestid <= p)){
+				condition = true;
+			}
+			else{
+				condition = false;
+			}
+		}
+
+		if(condition){
+			args->storedata(requestid,command[1]);
+		}
+		else{
+
+			//send request to successor
+			pair<string,long long int> ipport = args->successordetail();
+			int newsockfd = newconnection(ipport.first,to_string(ipport.second));
+			string msg = "upload " + command[1];
+			send(newsockfd,msg.c_str(),msg.size(),0);
+
+		}	
 	}
 }
 
@@ -305,7 +362,7 @@ void *listener(void *fd){
 			//do all the task given to listener
 			struct threaddetails td;
 			td.currentnode = args;
-			td.socketfd = clientsockfd[sockcount];https://github.com/mitul227/Chord-DHT
+			td.socketfd = clientsockfd[sockcount];
 			pthread_t th;
 			pthread_create(&th,NULL,event,(void *)&td);
 			pthread_detach(th);
@@ -336,7 +393,7 @@ void *stable(void *fd){
 		send(sockfd,commandtosend.c_str(),commandtosend.size(),0);
 		
 		recv(sockfd,buffer,sizeof(buffer), 0);
-		cout << "msg recv from suc-1 " << buffer << endl; // msg should be predecessor "id ip port"
+		// cout << "msg recv from suc-1 " << buffer << endl; // msg should be predecessor "id ip port"
 		string msg="";
 		int i=0;
 		while(buffer[i] != '\0'){
@@ -351,40 +408,40 @@ void *stable(void *fd){
 		bool condition = false;
 		// check conditions
 		if(x == -1){
-			cout<<"c1"<<endl;
+			// cout<<"c1"<<endl;
 			condition = false;
 		}
 		else if(n == s && x==n){
-			cout<<"c2"<<endl;
+			// cout<<"c2"<<endl;
 			condition = false;
 		}
 		else if(n < s){
 			if(n < x && x < s){
-				cout<<"c3"<<endl;
+				// cout<<"c3"<<endl;
 				condition = true;
 			}
 			else{
-				cout<<"c4"<<endl;
+				// cout<<"c4"<<endl;
 				condition = false;
 			}
 		}
 		else if(n > s){
 			if(!(s <= x && x<=n)){
-				cout<<"c5"<<endl;
+				// cout<<"c5"<<endl;
 				condition = true;
 			}
 			else{
-				cout<<"c6"<<endl;
+				// cout<<"c6"<<endl;
 				condition = false;
 			}
 		}
 		else{
-			cout<<"c7"<<endl;
+			// cout<<"c7"<<endl;
 			condition = true;
 		}
 
 		if(condition){
-			cout<<"Updated successor"<<endl;
+			// cout<<"Updated successor"<<endl;
 			pthread_mutex_lock(&lock1); 
 			args->successor(pred[1],atoi(pred[2].c_str()),x);
 			pthread_mutex_unlock(&lock1); 
@@ -395,7 +452,7 @@ void *stable(void *fd){
 		int newsockfd = newconnection(newneighbour.first , to_string(newneighbour.second));
 
 		string notify = "notify " + args->getip() + " " + to_string(args->getnodeportno()) + " " + to_string(n);
-		cout<<"Notify string "<<notify<<endl;
+		// cout<<"Notify string "<<notify<<endl;
 		send(newsockfd,notify.c_str(),notify.size(),0);
 		close(newsockfd);
 		sleep(15);
@@ -477,10 +534,10 @@ int main()
 			char buffer[255];
 			memset(buffer,'\0',sizeof(buffer));
 			send(sockfd,commandtosend.c_str(),commandtosend.size(),0);
-			cout << "commandtosend " << commandtosend<< endl;
+			// cout << "commandtosend " << commandtosend<< endl;
 
 			recv(sockfd,buffer,sizeof(buffer), 0);
-			cout << "msg recv at outer node " << buffer << endl;
+			// cout << "msg recv at outer node " << buffer << endl;
 			string succid="";
 			int i=0;
 			while(buffer[i] != '\0'){
@@ -521,6 +578,10 @@ int main()
 			string ppp = command[2];
 			string idpp = command[3];
 			currentnode.successor(command[1],atoi(ppp.c_str()),atoi(idpp.c_str()));
+		}
+
+		else if(command[0] == "data_display"){
+			currentnode.datadisplay();
 		}
 
 		else{

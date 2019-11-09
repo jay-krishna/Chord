@@ -5,7 +5,7 @@ import re
 
 arguments=int(sys.argv[1])
 
-file_lists=["node","node.o","nodeclass.o","util.o","nodeserver.o"]
+file_lists=["node","node.o","nodeclass.o","util.o","nodeserver.o","nodesync.o"]
 
 for _ in os.listdir("."):
 	if(re.search("^Node[0-9]+$",_)):
