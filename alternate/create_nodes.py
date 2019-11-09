@@ -15,7 +15,7 @@ for i in range(arguments):
 			for file in files:
 				os.remove(os.path.join(root, file))
 	except Exception:
-		os.mkdir(folder_name)
+	    os.mkdir(folder_name)
 
 	for file in file_lists:
 		src="ChordNode/"+file

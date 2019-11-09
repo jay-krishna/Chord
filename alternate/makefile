@@ -1,4 +1,4 @@
-all: ChordNode/util.o node# script
+all: ChordNode/util.o node script
 
 ChordNode/util.o: ChordNode/util.cpp
 	g++ -Wall -c -o ChordNode/util.o ChordNode/util.cpp -lssl -lcrypto
@@ -16,4 +16,4 @@ ChordNode/nodeserver.o: ChordNode/nodeserver.cpp
 	g++ -pthread -Wall -c -o ChordNode/nodeserver.o ChordNode/nodeserver.cpp
 
 script: create_nodes.py
-	python3 create_nodes.py 1
+	python3 create_nodes.py 4
