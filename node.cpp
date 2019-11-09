@@ -64,10 +64,8 @@ public:
 		this->predecessornode.second.second = portno;
 	}
 
-	pair<string,long long int> successordetail(long long int id){
-		if(this->successor.find(id) != this->successor.end()){
-			return this->successor[id];
-		}
+	pair<string,long long int> successordetail(){
+		return make_pair(this->successornode.second.first , this->successornode.second.second);
 	}
 
 	void nodedetails()
@@ -81,7 +79,7 @@ public:
 
 	long long int findsuccessor(long long int requestid){
 		long long int s = this->successornode.first;
-		long lon int n = this->nodeid;
+		long long int n = this->nodeid;
 
 		if(s == n){
 			return n;
@@ -105,6 +103,26 @@ public:
 	}
 
 };
+
+int newconnection(string ip, string portno){
+	
+	long long int port = atoi(portno.c_str());
+	int sockfd;
+	struct sockaddr_in serv_addr;
+	struct hostent *server;
+	sockfd = socket(AF_INET,SOCK_STREAM,0);
+	if(sockfd < 0){cout << "Error Opening Socket";}
+	server = gethostbyname(ip.c_str());
+	bzero((char *)&serv_addr,sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	bcopy((char *)server->h_addr, (char *) &serv_addr.sin_addr.s_addr, server->h_length);
+	serv_addr.sin_port = htons(port);
+	if(connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr))<0){
+		cout << "Error Connecting" << endl;
+		return -1;
+	}
+	return sockfd;
+}
 
 void *listener(void *fd){ // this function will create a node socket and will serve all request given by other nodes.
 		Node *args = (Node *)fd;
@@ -156,13 +174,30 @@ void *listener(void *fd){ // this function will create a node socket and will se
 				long long int rid = atoi(command[1].c_str());
 				long long int result = args->findsuccessor(rid);
 				if(result == -1){
-						//
+
+						pair<string,long long int> ipport = args->successordetail();
+						int newsockfd = newconnection(ipport.first,to_string(ipport.second));
+						string commandtosend = "findsuccessor " + to_string(rid); // command to be send to listner "findsuccessor nodeid"
+						char buffer[255];
+						memset(buffer,'\0',sizeof(buffer));
+						send(newsockfd,commandtosend.c_str(),commandtosend.size(),0);
+						recv(newsockfd,buffer,sizeof(buffer), 0);
+						string msg = "";
+						int j=0;
+						while(buffer[j] != '\0'){
+							msg = msg + buffer[j];
+							j++;
+						}
+						cout << "msg from neighbour " << msg << endl;
+						send(clientsockfd,msg.c_str(),msg.size(),0);
+
 				}
 				else{
 					
 					string r = to_string(result);
-					pair<string,long long int> otherdetails = args->successordetail(result);
+					pair<string,long long int> otherdetails = args->successordetail();
 					r = r + " " + otherdetails.first + " " + to_string(otherdetails.second);
+					// send is "nodeid ip port"
 					send(clientsockfd,r.c_str(),r.size(),0);	
 				}
 				
@@ -185,6 +220,8 @@ int main()
 	getline(cin,temp);//ignore
 
 	Node currentnode = Node(myip,portno);
+	long long int idd = gethash(myip+":"+to_string(portno));
+	currentnode.setid(idd);
 
 	while(true){
 		printprompt();
@@ -232,34 +269,19 @@ int main()
 			string portnotojoin = command[2];
 			long long int id = gethash(currentnode.getip() + ":" + to_string(currentnode.getnodeportno()));
 
-			int sockfd;
-			char buffer[255];
-			struct sockaddr_in serv_addr;
-			struct hostent *server;
-			sockfd = socket(AF_INET,SOCK_STREAM,0);
-			if(sockfd < 0){cout << "Error Opening Socket";}
-			server = gethostbyname(iptojoin.c_str());
-			bzero((char *)&serv_addr,sizeof(serv_addr));
-			serv_addr.sin_family = AF_INET;
-			bcopy((char *)server->h_addr, (char *) &serv_addr.sin_addr.s_addr, server->h_length);
-			serv_addr.sin_port = htons(10000);
+			int sockfd = newconnection(command[1],command[2]);
 			
-			if(connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr))<0){
-				cout << "Error Connecting" << endl;
-				return -1;
-			}
-
 			string commandtosend = "findsuccessor " + to_string(id); // command to be send to listner "findsuccessor nodeid"
 
+			char buffer[255];
 			memset(buffer,'\0',sizeof(buffer));
 			send(sockfd,commandtosend.c_str(),commandtosend.size(),0);
-			
 			cout << "commandtosend " << commandtosend<< endl;
+
 			recv(sockfd,buffer,sizeof(buffer), 0);
-			cout << buffer << endl;
+			cout << "msg recv at outer node " << buffer << endl;
 			string succid="";
 			int i=0;
-
 			while(buffer[i] != '\0'){
 				succid = succid + buffer[i];
 				i++;
@@ -267,22 +289,34 @@ int main()
 			vector<string> cc = splitcommand(succid);
 
 			string temp1 = cc[0];
-			string temp2 = cc[1];
+			string temp2 = cc[2];
 			currentnode.successor(cc[1],atoi(temp2.c_str()),atoi(temp1.c_str()));
 
 			currentnode.predecessor("",-1,-1);
+			currentnode.setid(id);
 			currentnode.setringstatus();
 			currentnode.nodedetails();
+			close(sockfd);
+			
 			// sock program 
 			// send hash id to chord ring whose ip and port is known
 			// recv successor id from that node
 			// setnode details like successor list predecco...
 			
 			// release thread -> listening purpose
+			pthread_t ll;
+			pthread_create(&ll,NULL,listener,(void *)&currentnode);
+			pthread_detach(ll);
 			// release thread -> stabalization
 
 			}
 
+		else if(command[0] == "temp"){
+
+			string ppp = command[2];
+			string idpp = command[3];
+			currentnode.successor(command[1],atoi(ppp.c_str()),atoi(idpp.c_str()));
+		}
 		else{
 			cout << "Wrong Command input" << endl;
 		}
