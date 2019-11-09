@@ -23,15 +23,20 @@ int main()
 	cout << "Enter Node Portno" << endl;
 	cin >> portno;
 
+	Node currentnode = Node(myip,portno);
 	string temp;// junk enter char
 	getline(cin,temp);//ignore
 	long long int idd = gethash(myip+":"+to_string(portno));
 	currentnode.setid(idd);
 
-	Node currentnode = Node(myip,portno);
+	
 	while(true){
 		printprompt();
 		getline(cin,inputcommand);
+
+		if(inputcommand == ""){
+			continue;
+		}
 
 		vector<string> command;
 		command = splitcommand(inputcommand);
