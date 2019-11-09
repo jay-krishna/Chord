@@ -25,6 +25,8 @@ int main()
 
 	string temp;// junk enter char
 	getline(cin,temp);//ignore
+	long long int idd = gethash(myip+":"+to_string(portno));
+	currentnode.setid(idd);
 
 	Node currentnode = Node(myip,portno);
 	while(true){
