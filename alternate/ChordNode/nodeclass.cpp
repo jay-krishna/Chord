@@ -10,6 +10,11 @@ string Node::getip(){
 	return nodeip;
 }
 
+long long int Node::getid()
+{
+	return this->nodeid;
+}
+
 long long int Node::getnodeportno(){
 	return nodeportno;
 }
@@ -28,19 +33,42 @@ void Node::setringstatus()
 }
 
 void Node::successor(string ip,long long int portno,long long int id){
+
+	// pthread_mutex_lock(&lock1);
+
 	successornode.first = id;
 	successornode.second.first = ip;
 	successornode.second.second = portno;
+
+	// pthread_mutex_unlock(&lock1);
+
 }
 
 void Node::predecessor(string ip,long long int portno,long long int id){
+
+	// pthread_mutex_lock(&lock0);
+
 	predecessornode.first = id;
 	predecessornode.second.first = ip;
 	predecessornode.second.second = portno;
+
+	// pthread_mutex_unlock(&lock0);
 }
 
 pair<string,long long int> Node::successordetail(){
 	return make_pair(this->successornode.second.first , this->successornode.second.second);
+}
+
+long long int Node::successorid(){
+	return this->successornode.first;
+}
+
+long long int Node::predecessorid(){
+	return this->predecessornode.first;
+}
+
+pair<string,long long int> Node::predecessordetail(){
+	return make_pair(this->predecessornode.second.first , this->predecessornode.second.second);	
 }
 
 void Node::nodedetails()
