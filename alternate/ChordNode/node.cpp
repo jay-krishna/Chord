@@ -5,49 +5,13 @@
 #include<math.h>
 #include <openssl/sha.h>
 #include<bits/stdc++.h>
+#include <pthread.h>
 
 #include "nodeclass.h"
+#include "util.h"
+#include "nodeserver.h"
 
 using namespace std;
-
-long long int gethash(string key){
-    unsigned char obuf[41];
-    char finalHash[41];
-    string keyHash = "";
-    int i;
-    long long int mod = pow(2,4); /// here m value is equal to 11 so total 0 to 2^11 -1 position available for nodes
- 
-    unsigned char unsigned_key[key.length()+1];
-    for(i=0;i<key.length();i++){
-        unsigned_key[i] = key[i];
-    }
-    unsigned_key[i] = '\0';
-
-
-    SHA1(unsigned_key,sizeof(unsigned_key),obuf);
-    for (i = 0; i < 11/8; i++) {
-        sprintf(finalHash,"%d",obuf[i]);
-        keyHash += finalHash;
-    }
-
-    long long int hash = stoll(keyHash) % mod;
-
-    return hash;
-}
-
-void printprompt(){
-	cout << "$ ";
-	}
-
-vector<string> splitcommand(string input){ /// splits command via space and returns vector of string
-	stringstream ss(input);
-	vector<string> result;
-	string temp;
-	while(ss >> temp){
-		result.push_back(temp);
-	}
-	return result;
-}
 
 int main()
 {
@@ -74,30 +38,88 @@ int main()
 			
 			if(currentnode.ringstatus() == false){
 				
-				string key = myip +":"+ to_string(portno);
+				string key = myip +":"+ to_string(portno);	// node id = sha("ip:port")
 				long long int id = gethash(key);			// currentnode nodeid, given by sha1 (key = ip+port)
 				currentnode.setid(id);						// set all node values
 				currentnode.setringstatus();
 				currentnode.successor(myip,portno,id);
 				currentnode.predecessor("",-1,-1);
 
-				// launch thread to start listening for other nodes to join chord ring
+				// launch thread to start listening for other nodes to join chord ring 
+				pthread_t l;
+				pthread_create(&l,NULL,NodeServer,(void *)&currentnode);
+				pthread_detach(l);
 				
+				// launch thread for stabalization
 
-
-				// launch thread for stabalization 
 			}
+				
 			else{
 				cout << "Node is already part of ring" << endl;
 				}
 		}
+		
+		else if(command[0] == "display"){
+			currentnode.nodedetails();
+		}
+		
+		else if(command[0] == "join"){
 
-		else if(command[0] == "join_ring"){
-			// if(currentnode.ringstatus() == false){
+			string iptojoin = command[1];
+			string portnotojoin = command[2];
+			long long int id = gethash(currentnode.getip() + ":" + to_string(currentnode.getnodeportno()));
 
-			// }
+			int sockfd = newconnection(command[1],command[2]);
+			
+			string commandtosend = "findsuccessor " + to_string(id); // command to be send to listner "findsuccessor nodeid"
+
+			char buffer[255];
+			memset(buffer,'\0',sizeof(buffer));
+			send(sockfd,commandtosend.c_str(),commandtosend.size(),0);
+			cout << "commandtosend " << commandtosend<< endl;
+
+			recv(sockfd,buffer,sizeof(buffer), 0);
+			cout << "msg recv at outer node " << buffer << endl;
+			string succid="";
+			int i=0;
+			while(buffer[i] != '\0'){
+				succid = succid + buffer[i];
+				i++;
+			}
+			vector<string> cc = splitcommand(succid);
+
+			string temp1 = cc[0];
+			string temp2 = cc[2];
+			currentnode.successor(cc[1],atoi(temp2.c_str()),atoi(temp1.c_str()));
+
+			currentnode.predecessor("",-1,-1);
+			currentnode.setid(id);
+			currentnode.setringstatus();
+			currentnode.nodedetails();
+			close(sockfd);
+			
+			// sock program 
+			// send hash id to chord ring whose ip and port is known
+			// recv successor id from that node
+			// setnode details like successor list predecco...
+			
+			// release thread -> listening purpose
+			pthread_t ll;
+			pthread_create(&ll,NULL,NodeServer,(void *)&currentnode);
+			pthread_detach(ll);
+			// release thread -> stabalization
+
 		}
 
+		else if(command[0] == "temp"){
+
+			string ppp = command[2];
+			string idpp = command[3];
+			currentnode.successor(command[1],atoi(ppp.c_str()),atoi(idpp.c_str()));
+		}
+
+		else if(command[0]=="exit")
+			break;
 
 		else{
 			cout << "Wrong Command input" << endl;

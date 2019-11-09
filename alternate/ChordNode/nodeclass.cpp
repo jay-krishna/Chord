@@ -39,6 +39,9 @@ void Node::predecessor(string ip,long long int portno,long long int id){
 	predecessornode.second.second = portno;
 }
 
+pair<string,long long int> Node::successordetail(){
+	return make_pair(this->successornode.second.first , this->successornode.second.second);
+}
 
 void Node::nodedetails()
 {
@@ -47,4 +50,29 @@ void Node::nodedetails()
 	cout << "Node nodeid is " << this->nodeid << endl;
 	cout << "Node successornode id is " << this->successornode.first << " ip and port is " << successornode.second.first << " " << successornode.second.second << endl;
 	cout << "Node predecessornode id is " << this->predecessornode.first << " ip and port is " << predecessornode.second.first << " " << predecessornode.second.second << endl;
+}
+
+long long int Node::findsuccessor(long long int requestid){
+	long long int s = this->successornode.first;
+	long long int n = this->nodeid;
+
+	if(s == n){
+		return n;
+	}
+	else if(n < s){
+		if(n < requestid && requestid <= s){
+			return s;
+		}
+		else{
+			return -1;
+		}
+	}
+	else{
+		if(!(s < requestid && requestid <= n)){
+			return s;
+		}
+		else{
+			return -1;
+		}
+	}
 }

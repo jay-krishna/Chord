@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <utility>
 
 using namespace std;
 
@@ -35,7 +36,11 @@ public:
 
 	void predecessor(string ip,long long int portno,long long int id);
 
+	pair<string,long long int> successordetail();
+
 	void nodedetails();
+
+	long long int findsuccessor(long long int requestid);
 };
 
 #endif
