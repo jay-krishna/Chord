@@ -61,6 +61,10 @@ public:
 	{
 		this->connectedtoring = true;
 	}
+	void setringstatusfalse()
+	{
+		this->connectedtoring = false;
+	}
 
 	void successor(string ip,long long int portno,long long int id){
 		this->successornode.first = id;
@@ -453,6 +457,14 @@ void *event(void *fd){
 			send(clientsockfd,ack.c_str(),ack.size(),0);
 		}
 	}
+
+	else if(command[0] == "changepred"){
+		args->predecessor(command[1],atoi(command[2].c_str()),atoi(command[3].c_str()));
+	}
+
+	else if(command[0] == "changesucc"){
+		args->successor(command[1],atoi(command[2].c_str()),atoi(command[3].c_str()));
+	}
 }
 
 // this function will create a node socket and will serve all request given by other nodes.
@@ -592,6 +604,67 @@ void *stable(void *fd){
 }
 
 
+void senddata(Node *args){
+	vector<pair<string,long long int>> result = args->getdata();
+	
+	long long int s = args->successorid();
+	pair<string,long long int> ipport = args->successordetail();
+
+	int sockfd = newconnection(ipport.first,to_string(ipport.second));
+
+	string start= "startdownload";
+	send(sockfd,start.c_str(),start.size(),0);
+	char buffer[100];
+	memset(buffer,'\0',sizeof(buffer));
+	recv(sockfd,buffer,sizeof(buffer),0);
+
+	for(int i=0;i<result.size();i++)
+	{
+		char buffer[1000];
+		memset(buffer,'\0',sizeof(buffer));
+
+		string data = result[i].first;
+		string requestid = to_string(result[i].second);
+		string msg = data + " " + requestid;
+
+		send(sockfd,msg.c_str(),msg.size(),0);
+		recv(sockfd,buffer,sizeof(buffer),0);
+	}
+	string ack = "done";
+	send(sockfd,ack.c_str(),ack.size(),0);
+
+}
+
+void changesuccpred(Node *args){
+	long long int predid = args->predecessorid();
+	pair<string,long long int> predipport = args->predecessordetail();
+
+	long long int succid = args->successorid();
+	pair<string,long long int> succipport = args->successordetail();
+
+
+	int sockfd = newconnection(succipport.first,to_string(succipport.second));
+
+	string msg= "changepred " + predipport.first + " " + to_string(predipport.second) + " " + to_string(predid);
+	send(sockfd,msg.c_str(),msg.size(),0);
+
+}
+
+void changepredsucc(Node *args){
+	long long int predid = args->predecessorid();
+	pair<string,long long int> predipport = args->predecessordetail();
+
+	long long int succid = args->successorid();
+	pair<string,long long int> succipport = args->successordetail();
+
+
+	int sockfd = newconnection(predipport.first,to_string(predipport.second));
+
+	string msg= "changesucc " + succipport.first + " " + to_string(succipport.second) + " " + to_string(succid);
+	send(sockfd,msg.c_str(),msg.size(),0);
+
+}
+
 int main()
 {
 	string inputcommand;
@@ -648,11 +721,11 @@ int main()
 				}
 		}
 		
-		else if(command[0] == "display"){
+		else if(currentnode.ringstatus() == true && command[0] == "display"){
 			currentnode.nodedetails();
 			}
 		
-		else if(command[0] == "join"){
+		else if(currentnode.ringstatus() == false && command[0] == "join"){
 
 			string iptojoin = command[1];
 			string portnotojoin = command[2];
@@ -687,12 +760,6 @@ int main()
 			currentnode.nodedetails();
 			close(sockfd);
 			
-			// sock program 
-			// send hash id to chord ring whose ip and port is known
-			// recv successor id from that node
-			// setnode details like successor list predecco...
-			
-			// release thread -> listening purpose
 			pthread_t ll;
 			pthread_create(&ll,NULL,listener,(void *)&currentnode);
 			pthread_detach(ll);
@@ -704,15 +771,23 @@ int main()
 
 			}
 
-		else if(command[0] == "temp"){
+		else if(currentnode.ringstatus() == true && command[0] == "temp"){
 
 			string ppp = command[2];
 			string idpp = command[3];
 			currentnode.successor(command[1],atoi(ppp.c_str()),atoi(idpp.c_str()));
 		}
 
-		else if(command[0] == "data_display"){
+		else if(currentnode.ringstatus() == true && command[0] == "data_display"){
 			currentnode.datadisplay();
+		}
+
+		else if(currentnode.ringstatus() == true && command[0] == "leave"){
+			senddata(&currentnode);
+			changesuccpred(&currentnode);
+			changepredsucc(&currentnode);
+			return 0;
+
 		}
 
 		else{
