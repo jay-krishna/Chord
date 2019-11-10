@@ -62,7 +62,7 @@ int main(){
 	prepare();
 
 	// driver(1000);
-	for(int i=1000;i<3000;++i){
+	for(int i=10000;i<10500;++i){
 		driver(i);
 	}
 	// cout<<gethash(ip)<<endl;

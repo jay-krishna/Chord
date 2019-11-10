@@ -18,7 +18,7 @@ void *event(void *fd){
 		input = input + buffer[i];
 		i++;
 	}
-	cout << "command recv " << input << endl;
+	// cout << "command recv " << input << endl;
 	vector<string> command = splitcommand(input);
 	// recv command is "findsuccessor nodeid"
 	
@@ -40,7 +40,7 @@ void *event(void *fd){
 				msg = msg + buffer[j];
 				j++;
 			}
-			cout << "msg from neighbour " << msg << endl;
+			// cout << "msg from neighbour " << msg << endl;
 			send(clientsockfd,msg.c_str(),msg.size(),0);
 		}
 		else{
@@ -72,35 +72,35 @@ void *event(void *fd){
 		long long int p = args->predecessorid(); 
 
 		bool condition = false;
-		cout<<"In nofitfy values "<<n <<" "<<n1<<" "<<p<<endl;
+		// cout<<"In nofitfy values "<<n <<" "<<n1<<" "<<p<<endl;
 		if(p == -1){
-			cout<<"predecessor is -1"<<endl;
+			// cout<<"predecessor is -1"<<endl;
 			condition = true;
 		}
 		else{
 			// n' belongsto (p,n)
 
 			if(p == n && n1==p){
-				cout<<"p1"<<endl;
+				// cout<<"p1"<<endl;
 				condition = false;
 			}
 			else if(p < n){
 				if(p < n1 && n1 < n){
-					cout<<"p2"<<endl;
+					// cout<<"p2"<<endl;
 					condition = true;
 				}
 				else{
-					cout<<"p3"<<endl;
+					// cout<<"p3"<<endl;
 					condition = false;
 				}
 			}
 			else if(p > n){
 				if(!(n <= n1 && n1<=p)){
-					cout<<"p4"<<endl;
+					// cout<<"p4"<<endl;
 					condition = true;
 				}
 				else{
-					cout<<"p5"<<endl;
+					// cout<<"p5"<<endl;
 					condition = false;
 				}
 			}
@@ -110,10 +110,75 @@ void *event(void *fd){
 		}
 
 		if(condition){
-			cout<<"predecessor Updated"<<endl;
+			// cout<<"predecessor Updated"<<endl;
 			pthread_mutex_lock(&lock0); 
 			args->predecessor(command[1],atoi(command[2].c_str()),n1);
 			pthread_mutex_unlock(&lock0); 
+		}
+	}
+	else if(command[0] == "upload"){
+		string ack = "File Uploaded to Server";
+		send(clientsockfd,ack.c_str(),ack.size(),0);
+
+		long long int requestid = gethash(command[1]);
+		long long int p = args->predecessorid();
+		long long int n = args->getid();
+		// id (- (n,s]
+		// id (p,n]
+		bool condition = false;
+		if(n == p){
+			condition = true;
+		}
+		else if(p < n){
+			if(p < requestid && requestid <= n){
+				condition = true;
+			}
+			else{
+				condition = false;
+			}
+		}
+		else{
+			if(!(n < requestid && requestid <= p)){
+				condition = true;
+			}
+			else{
+				condition = false;
+			}
+		}
+
+		if(condition){
+			args->storedata(requestid,command[1]);
+		}
+		else{
+
+			//send request to successor
+			pair<string,long long int> ipport = args->successordetail();
+			int newsockfd = newconnection(ipport.first,to_string(ipport.second));
+			string msg = "upload " + command[1];
+			send(newsockfd,msg.c_str(),msg.size(),0);
+
+		}	
+	}
+	else if(command[0] == "search"){
+		bool found = args->search(command[1]); // search string in database 
+
+		if(found){
+			string msg = args->getip() + " " + to_string(args->getnodeportno());
+			send(clientsockfd,msg.c_str(),msg.size(),0);
+		}
+		else{
+			// same request to successor
+			pair<string,long long int> ipport = args->successordetail();
+			int newsockfd = newconnection(ipport.first,to_string(ipport.second));
+			string msg = "search " + command[1];
+			send(newsockfd,msg.c_str(),msg.size(),0);
+
+			char buffer[200];
+			memset(buffer,'\0',sizeof(buffer));
+			recv(newsockfd,buffer,sizeof(buffer), 0);
+			close(newsockfd);
+
+			send(clientsockfd,buffer,sizeof(buffer),0);// send loction to client;
 		}
 	}
 

@@ -55,6 +55,22 @@ void Node::predecessor(string ip,long long int portno,long long int id){
 	// pthread_mutex_unlock(&lock0);
 }
 
+void Node::datadisplay(){
+	for(auto i = data.begin();i!=data.end();i++)
+	{
+		cout << i->first << " " << i->second << endl;
+	}
+}
+
+bool Node::search(string s){
+	if(this->data.find(s) == this->data.end()){
+		return false;
+	}
+	else{
+		return true;
+	}
+}
+
 pair<string,long long int> Node::successordetail(){
 	return make_pair(this->successornode.second.first , this->successornode.second.second);
 }
@@ -78,6 +94,10 @@ void Node::nodedetails()
 	cout << "Node nodeid is " << this->nodeid << endl;
 	cout << "Node successornode id is " << this->successornode.first << " ip and port is " << successornode.second.first << " " << successornode.second.second << endl;
 	cout << "Node predecessornode id is " << this->predecessornode.first << " ip and port is " << predecessornode.second.first << " " << predecessornode.second.second << endl;
+}
+
+void Node::storedata(long long int id, string s){
+	this->data[s] = id;
 }
 
 long long int Node::findsuccessor(long long int requestid){
