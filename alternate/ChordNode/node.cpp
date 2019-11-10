@@ -86,10 +86,10 @@ int main()
 			char buffer[255];
 			memset(buffer,'\0',sizeof(buffer));
 			send(sockfd,commandtosend.c_str(),commandtosend.size(),0);
-			cout << "commandtosend " << commandtosend<< endl;
+			// cout << "commandtosend " << commandtosend<< endl;
 
 			recv(sockfd,buffer,sizeof(buffer), 0);
-			cout << "msg recv at outer node " << buffer << endl;
+			// cout << "msg recv at outer node " << buffer << endl;
 			string succid="";
 			int i=0;
 			while(buffer[i] != '\0'){
@@ -128,6 +128,9 @@ int main()
 			string ppp = command[2];
 			string idpp = command[3];
 			currentnode.successor(command[1],atoi(ppp.c_str()),atoi(idpp.c_str()));
+		}
+		else if(command[0] == "data_display"){
+			currentnode.datadisplay();
 		}
 
 		else if(command[0]=="exit")

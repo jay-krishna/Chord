@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <pthread.h>
+#include <unordered_map>
 
 using namespace std;
 
@@ -17,8 +18,10 @@ private:
 	// vector<pair<int,string>> fingertable;
 	pair<long long int, pair<string,long long int>> successornode;
 	// pair.first = hashvalue // pair.second.first = ip // pair.second.second = portno
-	
+
 	pair<long long int, pair<string,long long int>> predecessornode;
+
+	unordered_map<string,long long int> data;
 
 public:
 	Node(string ip,int portno);
@@ -39,6 +42,10 @@ public:
 
 	void predecessor(string ip,long long int portno,long long int id);
 
+	void datadisplay();
+
+	bool search(string s);
+
 	pair<string,long long int> successordetail();
 
 	long long int successorid();
@@ -48,6 +55,8 @@ public:
 	pair<string,long long int> predecessordetail();
 
 	void nodedetails();
+
+	void storedata(long long int id, string s);
 
 	long long int findsuccessor(long long int requestid);
 };
