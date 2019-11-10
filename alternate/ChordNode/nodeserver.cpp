@@ -1,24 +1,7 @@
 #include "nodeserver.h"
+#include "util.h"
 
-int newconnection(string ip, string portno){
-	
-	long long int port = atoi(portno.c_str());
-	int sockfd;
-	struct sockaddr_in serv_addr;
-	struct hostent *server;
-	sockfd = socket(AF_INET,SOCK_STREAM,0);
-	if(sockfd < 0){cout << "Error Opening Socket";}
-	server = gethostbyname(ip.c_str());
-	bzero((char *)&serv_addr,sizeof(serv_addr));
-	serv_addr.sin_family = AF_INET;
-	bcopy((char *)server->h_addr, (char *) &serv_addr.sin_addr.s_addr, server->h_length);
-	serv_addr.sin_port = htons(port);
-	if(connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr))<0){
-		cout << "Error Connecting" << endl;
-		return -1;
-	}
-	return sockfd;
-}
+pthread_mutex_t lock0;
 
 void *event(void *fd){
 	struct threaddetails *nn = (struct threaddetails *)fd;
@@ -69,6 +52,69 @@ void *event(void *fd){
 			send(clientsockfd,r.c_str(),r.size(),0);	
 		}
 				
+	}
+
+	else if(command[0] == "givepredecessor"){
+		string msg="";
+
+		pair<string,long long int> predetails = args->predecessordetail();
+		long long int predid = args->predecessorid();
+
+		msg = msg + to_string(predid) + " " + predetails.first + " " + to_string(predetails.second);
+		send(clientsockfd,msg.c_str(),msg.size(),0);
+	}
+
+	else if(command[0] == "notify"){
+
+		long long int n = args->getid();
+		long long int n1 = atoi(command[3].c_str());
+
+		long long int p = args->predecessorid(); 
+
+		bool condition = false;
+		cout<<"In nofitfy values "<<n <<" "<<n1<<" "<<p<<endl;
+		if(p == -1){
+			cout<<"predecessor is -1"<<endl;
+			condition = true;
+		}
+		else{
+			// n' belongsto (p,n)
+
+			if(p == n && n1==p){
+				cout<<"p1"<<endl;
+				condition = false;
+			}
+			else if(p < n){
+				if(p < n1 && n1 < n){
+					cout<<"p2"<<endl;
+					condition = true;
+				}
+				else{
+					cout<<"p3"<<endl;
+					condition = false;
+				}
+			}
+			else if(p > n){
+				if(!(n <= n1 && n1<=p)){
+					cout<<"p4"<<endl;
+					condition = true;
+				}
+				else{
+					cout<<"p5"<<endl;
+					condition = false;
+				}
+			}
+			else{
+				 condition=true;
+			}
+		}
+
+		if(condition){
+			cout<<"predecessor Updated"<<endl;
+			pthread_mutex_lock(&lock0); 
+			args->predecessor(command[1],atoi(command[2].c_str()),n1);
+			pthread_mutex_unlock(&lock0); 
+		}
 	}
 
 	return NULL;
