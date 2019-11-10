@@ -81,6 +81,15 @@ public:
 		}
 	}
 
+	bool search(string s){
+		if(this->data.find(s) == this->data.end()){
+			return false;
+		}
+		else{
+			return true;
+		}
+	}
+
 	pair<string,long long int> successordetail(){
 		return make_pair(this->successornode.second.first , this->successornode.second.second);
 	}
@@ -321,6 +330,29 @@ void *event(void *fd){
 			send(newsockfd,msg.c_str(),msg.size(),0);
 
 		}	
+	}
+
+	else if(command[0] == "search"){
+		bool found = args->search(command[1]); // search string in database 
+
+		if(found){
+			string msg = args->getip() + " " + to_string(args->getnodeportno());
+			send(clientsockfd,msg.c_str(),msg.size(),0);
+		}
+		else{
+			// same request to successor
+			pair<string,long long int> ipport = args->successordetail();
+			int newsockfd = newconnection(ipport.first,to_string(ipport.second));
+			string msg = "search " + command[1];
+			send(newsockfd,msg.c_str(),msg.size(),0);
+
+			char buffer[200];
+			memset(buffer,'\0',sizeof(buffer));
+			recv(newsockfd,buffer,sizeof(buffer), 0);
+			close(newsockfd);
+
+			send(clientsockfd,buffer,sizeof(buffer),0);// send loction to client;
+		}
 	}
 }
 
