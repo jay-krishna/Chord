@@ -62,6 +62,20 @@ void Node::datadisplay(){
 	}
 }
 
+void Node::deletedata(string s){
+	// cout<<"deletedata called "<< s <<endl;
+	this->data.erase(s);
+}
+
+vector<pair<string,long long int>> Node::getdata(){
+	vector<pair<string,long long int>> result;
+	for(auto i = data.begin();i!=data.end();i++)
+	{
+		result.push_back(make_pair(i->first,i->second));
+	}	
+	return result;
+}
+
 bool Node::search(string s){
 	if(this->data.find(s) == this->data.end()){
 		return false;

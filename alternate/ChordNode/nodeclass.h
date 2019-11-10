@@ -6,6 +6,7 @@
 #include <utility>
 #include <pthread.h>
 #include <unordered_map>
+#include <vector>
 
 using namespace std;
 
@@ -43,6 +44,10 @@ public:
 	void predecessor(string ip,long long int portno,long long int id);
 
 	void datadisplay();
+
+	void deletedata(string s);
+
+	vector<pair<string,long long int>> getdata();
 
 	bool search(string s);
 

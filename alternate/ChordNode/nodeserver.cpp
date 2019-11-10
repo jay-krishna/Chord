@@ -111,9 +111,74 @@ void *event(void *fd){
 
 		if(condition){
 			// cout<<"predecessor Updated"<<endl;
+
+			long long int prev = p;
 			pthread_mutex_lock(&lock0); 
 			args->predecessor(command[1],atoi(command[2].c_str()),n1);
 			pthread_mutex_unlock(&lock0); 
+
+			long long int newpred = args->predecessorid();
+			pair<string,long long int> predipport = args->predecessordetail();
+
+			if(p != newpred && p !=-1 && newpred!=-1){
+
+				vector<pair<string,long long int>> result = args->getdata();
+				vector<pair<string,long long int>> newresult;
+
+				for(unsigned int i=0;i<result.size();i++)
+				{
+					long long int requestid = result[i].second;
+					string data = result[i].first;
+					bool condition = false;
+
+					// cout<<"Updating "<<p<<" "<<newpred<<" "<<requestid<<endl;
+
+					if(prev < newpred){
+						if(prev < requestid && requestid <= newpred){
+							condition = true;
+						}
+						else{
+							condition = false;
+						}
+					}
+					else{
+						if(!(newpred < requestid && requestid <= prev)){
+							condition = true;
+						}
+						else{
+							condition = false;
+						}
+					}
+					if(condition){
+						// cout<<"deletedata calling "<<endl;
+						args->deletedata(data);
+						newresult.push_back(make_pair(data,requestid));
+					}
+				}
+
+				int newsockfd = newconnection(predipport.first,to_string(predipport.second));
+				string startmsg = "startdownload";
+				// cout << "Start download msg sent " << endl;
+				send(newsockfd,startmsg.c_str(),startmsg.size(),0); // start msg sended to newpredecessor
+				string ack="done";
+
+				char buffer[100];
+				memset(buffer,'\0',sizeof(buffer));
+				recv(newsockfd,buffer,sizeof(buffer),0);
+
+				// cout <<"ok msg recv " <<  buffer << endl;
+				for(unsigned int i=0;i<newresult.size();i++)
+				{
+					string msg = newresult[i].first + " " + to_string(newresult[i].second); // msg = "string id"
+					// cout << "data transfer of " << msg << endl;
+					char buffer[100];
+					memset(buffer,'\0',sizeof(buffer));
+					send(newsockfd,msg.c_str(),msg.size(),0);
+					recv(newsockfd,buffer,sizeof(buffer),0);
+				}
+				send(newsockfd,ack.c_str(),ack.size(),0);
+				// cout << "done msg sent " << endl;
+			} 
 		}
 	}
 	else if(command[0] == "upload"){
@@ -179,6 +244,32 @@ void *event(void *fd){
 			close(newsockfd);
 
 			send(clientsockfd,buffer,sizeof(buffer),0);// send loction to client;
+		}
+	}
+
+	else if(command[0] == "startdownload"){
+
+		string ok = "ok";
+		send(clientsockfd,ok.c_str(),ok.size(),0);
+		// cout << "starting download" << endl;
+		string ack = "done";
+		while(true){
+
+			char buffer[1024];
+			memset(buffer,'\0',sizeof(buffer));
+
+			recv(clientsockfd,buffer,sizeof(buffer),0);
+			// cout << "msg recv " << buffer << endl;
+			int i=0;
+			string msg="";
+			while(buffer[i] != '\0'){
+				msg = msg + buffer[i];
+				i++;
+			}
+			if(msg == "done") break;
+			vector<string> c = splitcommand(msg); // msg will "string id"
+			args->storedata(atoi(c[1].c_str()),c[0]); 
+			send(clientsockfd,ack.c_str(),ack.size(),0);
 		}
 	}
 
