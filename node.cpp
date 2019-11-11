@@ -12,7 +12,6 @@
 #include<netdb.h>
 #include<unordered_map>
 #include "help.cpp"
-
 using namespace std;
 
 pthread_mutex_t lock0;
@@ -24,10 +23,11 @@ private:
 	long long int nodeportno;
 	long long int nodeid;
 	bool connectedtoring;
-	// vector<pair<int,string>> fingertable;
+
 	pair<long long int, pair<string,long long int>> successornode;// pair.first = hashvalue // pair.second.first = ip // pair.second.second = portno
 	pair<long long int, pair<string,long long int>> predecessornode;
 	unordered_map<string,long long int> data;
+	vector<pair<long long int, pair<string,long long int>>> finger;
 
 public:
 	Node(string ip,int portno){
@@ -98,6 +98,8 @@ public:
 		return result;
 	}
 
+
+
 	bool search(string s){
 		if(this->data.find(s) == this->data.end()){
 			return false;
@@ -133,6 +135,29 @@ public:
 
 	void storedata(long long int id, string s){
 		this->data[s] = id;
+	}
+
+	void updatefingertable(vector<pair<long long int, pair<string,long long int>>> &newfinger){
+		this->finger = newfinger;
+	}
+
+	void fingertableupdate(){
+
+		long long int succ = this->successornode.first;
+		string ipp = this->successornode.second.first;
+		long long int portt = this->successornode.second.second;
+
+		for(int i=1;i<=4;i++){
+			finger.push_back(make_pair(succ,make_pair(ipp,portt)));
+		}
+	}
+
+	void fingerdisplay()
+	{
+		for(int i=0;i<4;i++)
+		{
+			cout << finger[i].first << " " << finger[i].second.first << " " << finger[i].second.second << endl;
+		}
 	}
 
 	long long int findsuccessor(long long int requestid){
@@ -183,7 +208,7 @@ int newconnection(string ip, string portno){
 	bcopy((char *)server->h_addr, (char *) &serv_addr.sin_addr.s_addr, server->h_length);
 	serv_addr.sin_port = htons(port);
 	if(connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr))<0){
-		cout << "Error Connecting" << endl;
+		cout << "Error Connecting " << ip << " " << portno << endl;
 		return -1;
 	}
 	return sockfd;
@@ -198,8 +223,9 @@ void *event(void *fd){
 	Node *args = nn->currentnode;
 	
 	char buffer[1024];
-	memset(buffer,'\0',1024);
+	memset(buffer,'\0',sizeof(buffer));
 	recv(clientsockfd,buffer,sizeof(buffer), 0);
+	cout << "recv 0 " << buffer << endl;
 	string input;
 	int i=0;
 	while(buffer[i] != '\0'){
@@ -207,7 +233,10 @@ void *event(void *fd){
 		i++;
 	}
 	cout << "command recv " << input << endl;
+
 	vector<string> command = splitcommand(input);
+	if(command.size() == 0) return NULL;
+	// if(command.size() == 0) return NULL;
 	// recv command is "findsuccessor nodeid"
 	
 	if(command[0] == "findsuccessor"){
@@ -217,18 +246,25 @@ void *event(void *fd){
 
 			pair<string,long long int> ipport = args->successordetail();
 			int newsockfd = newconnection(ipport.first,to_string(ipport.second));
+			if(newsockfd == -1){
+				 cout << "newsofd is -1 connection loss in findsuccessor" <<   endl;
+			}
 			string commandtosend = "findsuccessor " + to_string(rid); // command to be send to listner "findsuccessor nodeid"
-			char buffer[255];
+			char buffer[1024];
 			memset(buffer,'\0',sizeof(buffer));
+			cout << "send 1 " << commandtosend << endl;  
 			send(newsockfd,commandtosend.c_str(),commandtosend.size(),0);
 			recv(newsockfd,buffer,sizeof(buffer), 0);
+			cout << "recv 1 " << buffer << endl;
 			string msg = "";
 			int j=0;
 			while(buffer[j] != '\0'){
 				msg = msg + buffer[j];
 				j++;
 			}
+			close(newsockfd);
 			// cout << "msg from neighbour " << msg << endl;
+			cout << "send 2 " << msg << endl;  
 			send(clientsockfd,msg.c_str(),msg.size(),0);
 		}
 		else{
@@ -237,6 +273,7 @@ void *event(void *fd){
 			pair<string,long long int> otherdetails = args->successordetail();
 			r = r + " " + otherdetails.first + " " + to_string(otherdetails.second);
 			// send is "nodeid ip port"
+			cout << "send 3 " << r << endl;
 			send(clientsockfd,r.c_str(),r.size(),0);	
 		}
 				
@@ -249,6 +286,7 @@ void *event(void *fd){
 		long long int predid = args->predecessorid();
 		
 		msg = msg + to_string(predid) + " " + predetails.first + " " + to_string(predetails.second);
+		cout << "send 4 " << msg << endl;
 		send(clientsockfd,msg.c_str(),msg.size(),0);
 	}
 
@@ -300,6 +338,7 @@ void *event(void *fd){
 		if(condition){
 
 			long long int prev = p;
+			
 			pthread_mutex_lock(&lock0); 
 			args->predecessor(command[1],atoi(command[2].c_str()),n1);
 			pthread_mutex_unlock(&lock0);
@@ -307,7 +346,7 @@ void *event(void *fd){
 			long long int newpred = args->predecessorid();
 			pair<string,long long int> predipport = args->predecessordetail();
 
-			if(p != newpred){
+			if(p != -1 && p != newpred){
 
 				vector<pair<string,long long int>> result = args->getdata();
 				vector<pair<string,long long int>> newresult;
@@ -339,34 +378,44 @@ void *event(void *fd){
 					}
 				}
 
-				int newsockfd = newconnection(predipport.first,to_string(predipport.second));
-				string startmsg = "startdownload";
-				// cout << "Start download msg sent " << endl;
-				send(newsockfd,startmsg.c_str(),startmsg.size(),0); // start msg sended to newpredecessor
-				string ack="done";
-				
-				char buffer[100];
-				memset(buffer,'\0',sizeof(buffer));
-				recv(newsockfd,buffer,sizeof(buffer),0);
-
-				// cout <<"ok msg recv " <<  buffer << endl;
-				for(int i=0;i<newresult.size();i++)
-				{
-					string msg = newresult[i].first + " " + to_string(newresult[i].second); // msg = "string id"
-					// cout << "data transfer of " << msg << endl;
-					char buffer[100];
+				if(newresult.size() > 0){
+					int newsockfd = newconnection(predipport.first,to_string(predipport.second));
+					if(newsockfd == -1){
+				 		cout << "newsofd is -1 connection loss in send data" <<  endl;
+					}
+					string startmsg = "startdownload";
+					// cout << "Start download msg sent " << endl;
+					cout << "send 5 " << startmsg << endl;
+					send(newsockfd,startmsg.c_str(),startmsg.size(),0); // start msg sended to newpredecessor
+					string ack="done";
+					
+					char buffer[1024];
 					memset(buffer,'\0',sizeof(buffer));
-					send(newsockfd,msg.c_str(),msg.size(),0);
 					recv(newsockfd,buffer,sizeof(buffer),0);
+					cout << "recv 5 " << buffer << endl;
+					// cout <<"ok msg recv " <<  buffer << endl;
+					for(int i=0;i<newresult.size();i++)
+					{
+						string msg = newresult[i].first + " " + to_string(newresult[i].second); // msg = "string id"
+						// cout << "data transfer of " << msg << endl;
+						char buffer[100];
+						memset(buffer,'\0',sizeof(buffer));
+						cout << "send 6 " << buffer << endl;
+						send(newsockfd,msg.c_str(),msg.size(),0);
+						recv(newsockfd,buffer,sizeof(buffer),0);
+						cout << "recv 6 " << buffer << endl;
+					}
+					cout << "send 7 " << ack << endl;
+					send(newsockfd,ack.c_str(),ack.size(),0);
+					// cout << "done msg sent " << endl;
 				}
-				send(newsockfd,ack.c_str(),ack.size(),0);
-				// cout << "done msg sent " << endl;
 			} 
 		}
 	}
 
 	else if(command[0] == "upload"){
 		string ack = "File Uploaded to Server";
+		cout << "send 8 " << ack << endl;
 		send(clientsockfd,ack.c_str(),ack.size(),0);
 		
 		long long int requestid = gethash(command[1]);
@@ -403,7 +452,11 @@ void *event(void *fd){
 			//send request to successor
 			pair<string,long long int> ipport = args->successordetail();
 			int newsockfd = newconnection(ipport.first,to_string(ipport.second));
+			if(newsockfd == -1){
+				 cout << "newsofd is -1 connection loss store data" <<  endl;
+			}
 			string msg = "upload " + command[1];
+			cout << "send 9 " << msg << endl;
 			send(newsockfd,msg.c_str(),msg.size(),0);
 
 		}	
@@ -414,20 +467,26 @@ void *event(void *fd){
 
 		if(found){
 			string msg = args->getip() + " " + to_string(args->getnodeportno());
+			cout << "send 10 " << msg << endl;
 			send(clientsockfd,msg.c_str(),msg.size(),0);
 		}
 		else{
 			// same request to successor
 			pair<string,long long int> ipport = args->successordetail();
 			int newsockfd = newconnection(ipport.first,to_string(ipport.second));
+			if(newsockfd == -1){
+				 cout << "newsofd is -1 connection loss in search" <<  endl;
+			}
 			string msg = "search " + command[1];
+			cout << "send 11 " << msg << endl;
 			send(newsockfd,msg.c_str(),msg.size(),0);
 
 			char buffer[200];
 			memset(buffer,'\0',sizeof(buffer));
 			recv(newsockfd,buffer,sizeof(buffer), 0);
+			cout << "recv 11 " << buffer << endl;
 			close(newsockfd);
-
+			cout << "send 12 " << buffer << endl;
 			send(clientsockfd,buffer,sizeof(buffer),0);// send loction to client;
 		}
 	}
@@ -435,6 +494,7 @@ void *event(void *fd){
 	else if(command[0] == "startdownload"){
 
 		string ok = "ok";
+		cout << "send 13 " << ok << endl;
 		send(clientsockfd,ok.c_str(),ok.size(),0);
 		// cout << "starting download" << endl;
 		string ack = "done";
@@ -444,6 +504,7 @@ void *event(void *fd){
 			memset(buffer,'\0',sizeof(buffer));
 
 			recv(clientsockfd,buffer,sizeof(buffer),0);
+			cout << "recv 13 " << buffer << endl;
 			// cout << "msg recv " << buffer << endl;
 			int i=0;
 			string msg="";
@@ -454,6 +515,7 @@ void *event(void *fd){
 			if(msg == "done") break;
 			vector<string> c = splitcommand(msg); // msg will "string id"
 			args->storedata(atoi(c[1].c_str()),c[0]); 
+			cout << "send 14 " << ack << endl;
 			send(clientsockfd,ack.c_str(),ack.size(),0);
 		}
 	}
@@ -474,7 +536,7 @@ void *listener(void *fd){
 		string ip = args->getip();
 		long long int portno = args->getnodeportno();
 
-		cout << "Listner is on " << ip << " " << portno << endl;
+		// cout << "Listner is on " << ip << " " << portno << endl;
 		int sockfd;
 		struct sockaddr_in serveraddress , clientaddress;
 		sockfd = socket(AF_INET,SOCK_STREAM,0);// socket created
@@ -493,7 +555,7 @@ void *listener(void *fd){
 		if(bind(sockfd,(struct sockaddr *)&serveraddress, sizeof(serveraddress)) < 0){
 			cout << "error bind socket" << endl;
 		}
-		listen(sockfd,5);
+		listen(sockfd,32);
 
 		int clientsockfd[100];
 		int sockcount=0;
@@ -510,8 +572,69 @@ void *listener(void *fd){
 			pthread_create(&th,NULL,event,(void *)&td);
 			pthread_detach(th);
 			sockcount++;
+			if(sockcount == 99) sockcount = 0;
 		}
 }
+
+void fixfinger(void *fd){
+
+	// while(1){
+		Node *args = (Node *)fd;
+	vector<pair<long long int, pair<string,long long int>>> newfinger;
+
+	long long int n = args->getid();
+	long long int mod = pow(2,4);
+
+		for(long long int j=0;j<4;j++)
+		{
+			long long int requestid = (n +(long long int) pow(2,j)) % mod;
+			long long int result = args->findsuccessor(requestid);
+
+		// cout << "requestid is " << requestid << " " << result << endl;
+		if(result == -1){
+			
+			pair<string,long long int> ipport = args->successordetail();
+
+			// cout << "New Connection " << ipport.first << " " << ipport.second << endl;			
+			int newsockfd = newconnection(ipport.first,to_string(ipport.second));
+			if(newsockfd == -1){
+				 cout << "newsofd is -1 connection loss fixfinger" <<  endl;
+			}
+			string commandtosend = "findsuccessor " + to_string(requestid); // command to be send to listner "findsuccessor nodeid"
+			
+			char buffer[255];
+			memset(buffer,'\0',sizeof(buffer));
+			cout << "send 17 " << commandtosend << endl;
+			send(newsockfd,commandtosend.c_str(),commandtosend.size(),0);
+			recv(newsockfd,buffer,sizeof(buffer), 0);
+			cout << "recv 17 " << buffer << endl;
+			string msg = "";
+			int j=0;
+			while(buffer[j] != '\0'){
+				msg = msg + buffer[j];
+				j++;
+			}
+			// cout << "new connection msg " << msg << endl;
+			// send is "nodeid ip port"
+			vector<string> ss = splitcommand(msg);
+			newfinger.push_back(make_pair(atoi(ss[0].c_str()),make_pair(ss[1],atoi(ss[2].c_str()) )));
+			close(newsockfd);
+
+		}
+		else{
+
+			pair<string,long long int> ipport = args->successordetail();
+			long long int succ = args->successorid();
+			newfinger.push_back(make_pair(succ,make_pair(ipport.first,ipport.second)));
+
+		}
+
+		args->updatefingertable(newfinger);
+		sleep(1);
+	}
+	
+
+	}
 
 void *stable(void *fd){
 	
@@ -527,15 +650,20 @@ void *stable(void *fd){
 
 		// start connection with successor
 		int sockfd = newconnection(neighbour.first , to_string(neighbour.second));
+		if(sockfd == -1){
+				 cout << "newsofd is -1 connection loss in stabalization" <<  endl;
+			}
 
 		string commandtosend = "givepredecessor"; // ask for predecessor
-		char buffer[255];
+		char buffer[1024];
 		memset(buffer,'\0',sizeof(buffer));
 		
 		// ask for predecessor
+		cout << "send 15 " << commandtosend << endl;
 		send(sockfd,commandtosend.c_str(),commandtosend.size(),0);
 		
 		recv(sockfd,buffer,sizeof(buffer), 0);
+		cout << "recv 15 " << buffer << endl;
 		// cout << "msg recv from suc-1 " << buffer << endl; // msg should be predecessor "id ip port"
 		string msg="";
 		int i=0;
@@ -593,16 +721,25 @@ void *stable(void *fd){
 		// new successor if above were true
 		pair<string,long long int> newneighbour = args->successordetail();
 		int newsockfd = newconnection(newneighbour.first , to_string(newneighbour.second));
+		if(newsockfd == -1){
+				 cout << "newsofd is -1 connection loss in stabalization-2" <<  endl;
+			}
 
 		string notify = "notify " + args->getip() + " " + to_string(args->getnodeportno()) + " " + to_string(n);
 		// cout<<"Notify string "<<notify<<endl;
+		cout << "send 16 " << notify << endl;
 		send(newsockfd,notify.c_str(),notify.size(),0);
 		close(newsockfd);
-		sleep(15);
+
+		fixfinger(fd);
+		sleep(10);
 	}
 		
 }
 
+
+	
+// }
 
 void senddata(Node *args){
 	vector<pair<string,long long int>> result = args->getdata();
@@ -611,12 +748,17 @@ void senddata(Node *args){
 	pair<string,long long int> ipport = args->successordetail();
 
 	int sockfd = newconnection(ipport.first,to_string(ipport.second));
+	if(sockfd == -1){
+				 cout << "newsofd is -1 connection loss senddata" <<  endl;
+	}
 
 	string start= "startdownload";
+	cout << "send 18 " << start << endl;
 	send(sockfd,start.c_str(),start.size(),0);
 	char buffer[100];
 	memset(buffer,'\0',sizeof(buffer));
 	recv(sockfd,buffer,sizeof(buffer),0);
+	cout << "recv 18 " << buffer << endl;
 
 	for(int i=0;i<result.size();i++)
 	{
@@ -626,11 +768,13 @@ void senddata(Node *args){
 		string data = result[i].first;
 		string requestid = to_string(result[i].second);
 		string msg = data + " " + requestid;
-
+		cout << "send 19 " << i  << " " << msg << endl;
 		send(sockfd,msg.c_str(),msg.size(),0);
 		recv(sockfd,buffer,sizeof(buffer),0);
+		cout << "recv 19 " << buffer << endl;
 	}
 	string ack = "done";
+	cout << "send 20 " << ack << endl;
 	send(sockfd,ack.c_str(),ack.size(),0);
 
 }
@@ -644,8 +788,12 @@ void changesuccpred(Node *args){
 
 
 	int sockfd = newconnection(succipport.first,to_string(succipport.second));
+	if(sockfd == -1){
+				 cout << "newsofd is -1 connection loss changepred" <<  endl;
+	}
 
 	string msg= "changepred " + predipport.first + " " + to_string(predipport.second) + " " + to_string(predid);
+	cout << "send 21 " << msg << endl;
 	send(sockfd,msg.c_str(),msg.size(),0);
 
 }
@@ -659,11 +807,16 @@ void changepredsucc(Node *args){
 
 
 	int sockfd = newconnection(predipport.first,to_string(predipport.second));
+	if(sockfd == -1){
+				 cout << "newsofd is -1 connection loss changesucc" <<  endl;
+	}
 
 	string msg= "changesucc " + succipport.first + " " + to_string(succipport.second) + " " + to_string(succid);
+	cout << "send 22 " << msg << endl;
 	send(sockfd,msg.c_str(),msg.size(),0);
 
 }
+
 
 int main()
 {
@@ -704,6 +857,8 @@ int main()
 				currentnode.successor(myip,portno,id);
 				currentnode.predecessor("",-1,-1);
 
+				currentnode.fingertableupdate();
+
 				// launch thread to start listening for other nodes to join chord ring 
 				pthread_t l;
 				pthread_create(&l,NULL,listener,(void *)&currentnode);
@@ -713,6 +868,11 @@ int main()
 				pthread_t s;
 				pthread_create(&s,NULL,stable,(void *)&currentnode);
 				pthread_detach(s);
+
+				// pthread_t f;
+				// pthread_create(&f,NULL,fixfinger,(void *)&currentnode);
+				// pthread_detach(f);
+
 
 			}
 				
@@ -732,15 +892,20 @@ int main()
 			long long int id = gethash(currentnode.getip() + ":" + to_string(currentnode.getnodeportno()));
 
 			int sockfd = newconnection(command[1],command[2]);
+			if(sockfd == -1){
+				 cout << "newsofd is -1 connection loss join" <<  endl;
+			}
 			
 			string commandtosend = "findsuccessor " + to_string(id); // command to be send to listner "findsuccessor nodeid"
 
-			char buffer[255];
+			char buffer[1024];
 			memset(buffer,'\0',sizeof(buffer));
+			cout << "send 23 " << commandtosend << endl;
 			send(sockfd,commandtosend.c_str(),commandtosend.size(),0);
 			// cout << "commandtosend " << commandtosend<< endl;
 
 			recv(sockfd,buffer,sizeof(buffer), 0);
+			cout << "recv 23 " << buffer << endl;
 			// cout << "msg recv at outer node " << buffer << endl;
 			string succid="";
 			int i=0;
@@ -760,14 +925,20 @@ int main()
 			currentnode.nodedetails();
 			close(sockfd);
 			
+			currentnode.fingertableupdate();
+
 			pthread_t ll;
 			pthread_create(&ll,NULL,listener,(void *)&currentnode);
 			pthread_detach(ll);
-			
+
 			// release thread -> stabalization
 			pthread_t s;
 			pthread_create(&s,NULL,stable,(void *)&currentnode);
 			pthread_detach(s);
+
+			// pthread_t f;
+			// pthread_create(&f,NULL,fixfinger,(void *)&currentnode);
+			// pthread_detach(f);
 
 			}
 
@@ -788,6 +959,10 @@ int main()
 			changepredsucc(&currentnode);
 			return 0;
 
+		}
+
+		else if(currentnode.ringstatus() == true && command[0] == "fingertable"){
+			currentnode.fingerdisplay();
 		}
 
 		else{
