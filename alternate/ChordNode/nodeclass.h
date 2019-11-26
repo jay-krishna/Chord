@@ -23,6 +23,7 @@ private:
 	pair<long long int, pair<string,long long int>> predecessornode;
 
 	unordered_map<string,long long int> data;
+	vector<pair<long long int, pair<string,long long int>>> finger;
 
 public:
 	Node(string ip,int portno);
@@ -39,9 +40,13 @@ public:
 
 	void setringstatus();
 
+	void setringstatusfalse();
+
 	void successor(string ip,long long int portno,long long int id);
 
 	void predecessor(string ip,long long int portno,long long int id);
+
+	void fingersuccessor(string ip,long long int portno,long long int id);
 
 	void datadisplay();
 
@@ -63,7 +68,15 @@ public:
 
 	void storedata(long long int id, string s);
 
+	void updatefingertable(vector<pair<long long int, pair<string,long long int>>> &newfinger);
+
+	void fingertableupdate();
+
+	void fingerdisplay();
+
 	long long int findsuccessor(long long int requestid);
+
+	pair<long long int,pair<string,long long int>> findpred(long long int s);
 };
 
 #endif

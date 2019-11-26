@@ -14,6 +14,8 @@
 
 using namespace std;
 
+bool closeall = true;
+
 int main()
 {
 	string inputcommand;
@@ -24,18 +26,18 @@ int main()
 	cout << "Enter Node Portno" << endl;
 	cin >> portno;
 
-	Node currentnode = Node(myip,portno);
 	string temp;// junk enter char
 	getline(cin,temp);//ignore
+
+	Node currentnode = Node(myip,portno);
 	long long int idd = gethash(myip+":"+to_string(portno));
 	currentnode.setid(idd);
 
-	
 	while(true){
 		printprompt();
 		getline(cin,inputcommand);
 
-		if(inputcommand == ""){
+		if(inputcommand == ""){ // if no command is been entered
 			continue;
 		}
 
@@ -53,6 +55,8 @@ int main()
 				currentnode.successor(myip,portno,id);
 				currentnode.predecessor("",-1,-1);
 
+				currentnode.fingertableupdate();
+
 				// launch thread to start listening for other nodes to join chord ring 
 				pthread_t l;
 				pthread_create(&l,NULL,NodeServer,(void *)&currentnode);
@@ -62,6 +66,12 @@ int main()
 				pthread_t s;
 				pthread_create(&s,NULL,stable,(void *)&currentnode);
 				pthread_detach(s);
+
+				// pthread_t f;
+				// pthread_create(&f,NULL,fixfinger,(void *)&currentnode);
+				// pthread_detach(f);
+
+
 			}
 				
 			else{
@@ -69,27 +79,27 @@ int main()
 				}
 		}
 		
-		else if(command[0] == "display"){
+		else if(currentnode.ringstatus() == true && command[0] == "display"){
 			currentnode.nodedetails();
-		}
+			}
 		
-		else if(command[0] == "join"){
+		else if(currentnode.ringstatus() == false && command[0] == "join"){
 
 			string iptojoin = command[1];
 			string portnotojoin = command[2];
 			long long int id = gethash(currentnode.getip() + ":" + to_string(currentnode.getnodeportno()));
 
 			int sockfd = newconnection(command[1],command[2]);
+			if(sockfd == -1){
+				 cout << "newsofd is -1 connection loss join" <<  endl;
+			}
 			
 			string commandtosend = "findsuccessor " + to_string(id); // command to be send to listner "findsuccessor nodeid"
 
-			char buffer[255];
+			char buffer[1024];
 			memset(buffer,'\0',sizeof(buffer));
 			send(sockfd,commandtosend.c_str(),commandtosend.size(),0);
-			// cout << "commandtosend " << commandtosend<< endl;
-
 			recv(sockfd,buffer,sizeof(buffer), 0);
-			// cout << "msg recv at outer node " << buffer << endl;
 			string succid="";
 			int i=0;
 			while(buffer[i] != '\0'){
@@ -106,35 +116,55 @@ int main()
 			currentnode.setid(id);
 			currentnode.setringstatus();
 			currentnode.nodedetails();
+			shutdown(sockfd,0);
 			close(sockfd);
-			
-			// sock program 
-			// send hash id to chord ring whose ip and port is known
-			// recv successor id from that node
-			// setnode details like successor list predecco...
-			
-			// release thread -> listening purpose
+			currentnode.fingertableupdate();
+
 			pthread_t ll;
 			pthread_create(&ll,NULL,NodeServer,(void *)&currentnode);
 			pthread_detach(ll);
+
 			// release thread -> stabalization
 			pthread_t s;
 			pthread_create(&s,NULL,stable,(void *)&currentnode);
 			pthread_detach(s);
-		}
 
-		else if(command[0] == "temp"){
+			// pthread_t f;
+			// pthread_create(&f,NULL,fixfinger,(void *)&currentnode);
+			// pthread_detach(f);
+
+			}
+
+		else if(currentnode.ringstatus() == true && command[0] == "temp"){
 
 			string ppp = command[2];
 			string idpp = command[3];
 			currentnode.successor(command[1],atoi(ppp.c_str()),atoi(idpp.c_str()));
 		}
-		else if(command[0] == "data_display"){
+
+		else if(currentnode.ringstatus() == true && command[0] == "data_display"){
 			currentnode.datadisplay();
 		}
 
-		else if(command[0]=="exit")
-			break;
+		else if(currentnode.ringstatus() == true && command[0] == "leave"){
+			currentnode.nodedetails();
+			currentnode.fingerdisplay();
+			closeall = false;
+			senddata(&currentnode);
+			changesuccpred(&currentnode);
+			changepredsucc(&currentnode);
+			// sleep(5);
+			long long int ll=0;
+			while(ll != 2233720){
+				ll++;
+			} 
+			return 0;
+
+		}
+
+		else if(currentnode.ringstatus() == true && command[0] == "fingertable"){
+			currentnode.fingerdisplay();
+		}
 
 		else{
 			cout << "Wrong Command input" << endl;

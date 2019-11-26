@@ -17,6 +17,12 @@
 
 using namespace std;
 
+extern bool closeall;
+
+void fixfinger(void *fd);
+// void senddata(Node *args);
+// void changesuccpred(Node *args);
+// void changepredsucc(Node *args);
 void *stable(void *fd);
 
 #endif

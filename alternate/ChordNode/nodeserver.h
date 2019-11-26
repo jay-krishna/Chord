@@ -22,7 +22,10 @@ struct threaddetails{
 	int socketfd;
 };
 
-int newconnection(string ip, string portno);
+void senddata(Node *args);
+void changesuccpred(Node *args);
+void changepredsucc(Node *args);
+// int newconnection(string ip, string portno);
 void *event(void *fd);
 void* NodeServer(void* pointer);
 
